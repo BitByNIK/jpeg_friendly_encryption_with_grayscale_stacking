@@ -5,17 +5,17 @@ from config import BLOCK_SIZE
 
 def convert_and_stack_ycbcr(input_image_path):
     img = Image.open(input_image_path).convert('RGB')
-    img_ycbcr = img.convert('YCbCr')
+    ycbcr_img = img.convert('YCbCr')
 
-    y, cb, cr = img_ycbcr.split()
+    y, cb, cr = ycbcr_img.split()
 
     y_np = np.array(y)
     cb_np = np.array(cb)
     cr_np = np.array(cr)
 
-    stacked_np = np.hstack([y_np, cb_np, cr_np])
+    stacked_img_np = np.hstack([y_np, cb_np, cr_np])
 
-    return stacked_np, img.size
+    return stacked_img_np, stacked_img_np.shape
 
 
 def pad_image_to_block_size(img_np):
@@ -23,9 +23,9 @@ def pad_image_to_block_size(img_np):
     pad_h = (BLOCK_SIZE - h % BLOCK_SIZE) % BLOCK_SIZE
     pad_w = (BLOCK_SIZE - w % BLOCK_SIZE) % BLOCK_SIZE
 
-    padded_img = np.pad(img_np, ((0, pad_h), (0, pad_w)), mode='edge')
+    padded_img_np = np.pad(img_np, ((0, pad_h), (0, pad_w)), mode='edge')
 
-    return padded_img
+    return padded_img_np
 
 
 def divide_image_into_blocks(img_np):

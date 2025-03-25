@@ -3,7 +3,7 @@ import random
 from config import BLOCK_SIZE, SEED
 
 
-def permute_blocks(blocks):
+def permute(blocks):
     num_blocks = len(blocks)
     indices = list(range(num_blocks))
 
