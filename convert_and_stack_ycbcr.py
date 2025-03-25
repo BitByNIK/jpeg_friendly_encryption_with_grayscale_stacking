@@ -3,7 +3,7 @@ import numpy as np
 
 
 def convert_and_stack_ycbcr(input_image_path, output_image_path):
-    img = Image.open(input_image_path)
+    img = Image.open(input_image_path).convert('RGB')
     img_ycbcr = img.convert('YCbCr')
 
     y, cb, cr = img_ycbcr.split()
