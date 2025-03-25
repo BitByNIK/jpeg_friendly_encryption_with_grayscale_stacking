@@ -1,5 +1,6 @@
 from PIL import Image
 import numpy as np
+from config import BLOCK_SIZE
 
 
 def convert_and_stack_ycbcr(input_image_path):
@@ -14,28 +15,23 @@ def convert_and_stack_ycbcr(input_image_path):
 
     stacked_np = np.hstack([y_np, cb_np, cr_np])
 
-    return stacked_np
+    return stacked_np, img.size
 
 
-def pad_image_to_block_size(img_np, block_size=100):
+def pad_image_to_block_size(img_np):
     h, w = img_np.shape
-    pad_h = (block_size - h % block_size) % block_size
-    pad_w = (block_size - w % block_size) % block_size
+    pad_h = (BLOCK_SIZE - h % BLOCK_SIZE) % BLOCK_SIZE
+    pad_w = (BLOCK_SIZE - w % BLOCK_SIZE) % BLOCK_SIZE
 
     padded_img = np.pad(img_np, ((0, pad_h), (0, pad_w)), mode='edge')
 
     return padded_img
 
 
-def divide_image_into_blocks(img_np, block_size=8):
+def divide_image_into_blocks(img_np):
     h, w = img_np.shape
-    blocks = (img_np.reshape(h // block_size, block_size, w // block_size, block_size)
+    blocks = (img_np.reshape(h // BLOCK_SIZE, BLOCK_SIZE, w // BLOCK_SIZE, BLOCK_SIZE)
               .swapaxes(1, 2)
-              .reshape(-1, block_size, block_size))
+              .reshape(-1, BLOCK_SIZE, BLOCK_SIZE))
 
     return blocks
-
-
-final_img = Image.fromarray(pad_image_to_block_size(
-    convert_and_stack_ycbcr('test.jpg')).astype(np.uint8), mode='L')
-final_img.save('test-n.jpg')
