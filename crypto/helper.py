@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from config import BLOCK_SIZE, SEED
+from config import BLOCK_SIZE, SEED, XOR_MIN_STRENGTH, XOR_MAX_STRENGTH
 
 
 def permute(blocks):
@@ -51,6 +51,20 @@ def apply_negative_positive(blocks):
         np_flags.append(apply_neg)
 
     return np.array(transformed_blocks), np_flags
+
+
+def appy_intensity_modulation(blocks):
+    transformed_blocks = []
+    xor_keys = []
+
+    for block in blocks:
+        xor_value = np.random.randint(
+            XOR_MIN_STRENGTH, XOR_MAX_STRENGTH, dtype=np.uint8)
+        xor_key = np.full((BLOCK_SIZE, BLOCK_SIZE), xor_value, dtype=np.uint8)
+        transformed_blocks.append(np.bitwise_xor(block, xor_key))
+        xor_keys.append(xor_key)
+
+    return np.array(transformed_blocks), xor_keys
 
 
 def merge_blocks(blocks, original_shape):
