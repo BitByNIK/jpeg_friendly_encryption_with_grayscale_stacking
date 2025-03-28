@@ -12,9 +12,9 @@ def encrypt(blocks: np.ndarray, original_shape: Tuple[int, int]) -> np.ndarray:
 
 
 def encrypt_with_xor(blocks: np.ndarray, original_shape: Tuple[int, int]) -> np.ndarray:
+    blocks, xor_keys = appy_intensity_modulation(blocks)
     blocks, indices = permute(blocks)
     blocks, rf_values = apply_rotation_and_flipping(blocks)
     blocks, np_flags = apply_negative_positive(blocks)
-    blocks, xor_keys = appy_intensity_modulation(blocks)
 
     return merge_blocks(blocks, original_shape)

@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from config import BLOCK_SIZE, SEED, XOR_MIN_STRENGTH, XOR_MAX_STRENGTH
+from config import BLOCK_SIZE, SEED, VARIANCE_THRESHOLD
 
 
 def permute(blocks):
@@ -58,8 +58,12 @@ def appy_intensity_modulation(blocks):
     xor_keys = []
 
     for block in blocks:
-        xor_value = np.random.randint(
-            XOR_MIN_STRENGTH, XOR_MAX_STRENGTH, dtype=np.uint8)
+        block_variance = np.var(block)
+        if block_variance < VARIANCE_THRESHOLD:
+            xor_value = np.random.randint(0, 4, dtype=np.uint8)
+        else:
+            xor_value = np.random.randint(0, 16, dtype=np.uint8)
+
         xor_key = np.full((BLOCK_SIZE, BLOCK_SIZE), xor_value, dtype=np.uint8)
         transformed_blocks.append(np.bitwise_xor(block, xor_key))
         xor_keys.append(xor_key)
