@@ -161,3 +161,6 @@ cython_debug/
 
 # Custom
 *.jpg
+
+# macOS
+.DS_Store
