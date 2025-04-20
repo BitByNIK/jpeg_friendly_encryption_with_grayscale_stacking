@@ -3,6 +3,13 @@ import numpy as np
 from config import BLOCK_SIZE
 
 
+def open_grayscale_image(input_image_path):
+    img = Image.open(input_image_path)
+    img_np = np.array(img)
+
+    return img_np, img_np.shape
+
+
 def convert_and_stack_ycbcr(input_image_path):
     img = Image.open(input_image_path).convert('RGB')
     ycbcr_img = img.convert('YCbCr')
@@ -16,6 +23,21 @@ def convert_and_stack_ycbcr(input_image_path):
     stacked_img_np = np.hstack([y_np, cb_np, cr_np])
 
     return stacked_img_np, stacked_img_np.shape
+
+
+def restore_rgb_from_ycbcr(stacked_img_np):
+    h, w3 = stacked_img_np.shape
+    w = w3 // 3
+
+    y_np = stacked_img_np[:, 0:w]
+    cb_np = stacked_img_np[:, w:2*w]
+    cr_np = stacked_img_np[:, 2*w:3*w]
+
+    ycbcr_img_np = np.stack([y_np, cb_np, cr_np], axis=-1).astype(np.uint8)
+    ycbcr_img = Image.fromarray(ycbcr_img_np, mode='YCbCr')
+    rgb_img = ycbcr_img.convert('RGB')
+
+    return rgb_img
 
 
 def pad_image_to_block_size(img_np):
