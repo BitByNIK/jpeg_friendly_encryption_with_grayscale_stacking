@@ -53,7 +53,7 @@ def apply_negative_positive(blocks):
     return np.array(transformed_blocks), np_flags
 
 
-def appy_intensity_modulation(blocks):
+def apply_intensity_modulation(blocks):
     transformed_blocks = []
     xor_keys = []
 
