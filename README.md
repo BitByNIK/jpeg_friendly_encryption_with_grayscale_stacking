@@ -25,7 +25,7 @@ python main.py --ops <bitmask>
 
 | Bit | Operation             |
 | --- | --------------------- |
-| 1   | XOR                   |
+| 1   | Adaptive XOR          |
 | 2   | Permutation           |
 | 4   | Rotation and Flipping |
 | 8   | Negative-Positive     |
