@@ -1,15 +1,17 @@
-from PIL import Image
 from io import BytesIO
+from pathlib import Path
+from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.measure import shannon_entropy
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 
-def compare_encryptions(encrypted_a: np.ndarray, encrypted_b: np.ndarray) -> None:
-    print("📊 Comparing Encryption A vs B\n")
+def compare_encryptions(encrypted_a: np.ndarray, a_name: str, encrypted_b: np.ndarray, b_name: str) -> None:
+    print(f"Comparing Encryption {a_name} vs {b_name}\n")
 
-    print(f"Entropy A: {shannon_entropy(encrypted_a):.4f}")
-    print(f"Entropy B: {shannon_entropy(encrypted_b):.4f}")
+    print(f"Entropy {a_name}: {shannon_entropy(encrypted_a):.4f}")
+    print(f"Entropy {b_name}: {shannon_entropy(encrypted_b):.4f}\n")
 
 
 def plot_histograms(encrypted_a: np.ndarray, encrypted_b: np.ndarray) -> None:
@@ -58,3 +60,40 @@ def get_rate_distortion_curve(encrypted_a: np.ndarray, encrypted_b: np.ndarray, 
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+
+def evaluate_psnr_ssim(original: np.ndarray, decrypted: np.ndarray):
+    psnr = peak_signal_noise_ratio(original, decrypted, data_range=255)
+    ssim = structural_similarity(original, decrypted, data_range=255)
+    return psnr, ssim
+
+
+def run_psnr_ssim_batch_evaluation(original_dir: Path, decrypted_dir: Path):
+    psnr_total = 0.0
+    ssim_total = 0.0
+    count = 0
+
+    for original_path in original_dir.glob("*.jpg"):
+        name = original_path.stem
+        decrypted_path = decrypted_dir / f"{name}_decrypted_15.jpg"
+
+        if not decrypted_path.exists():
+            print(f"Skipped: {name} — decrypted image not found.")
+            continue
+
+        orig_img = np.array(Image.open(original_path).convert("L"))
+        decr_img = np.array(Image.open(decrypted_path).convert("L"))
+
+        psnr, ssim = evaluate_psnr_ssim(orig_img, decr_img)
+        print(f"{name}: PSNR = {psnr:.2f} dB, SSIM = {ssim:.4f}")
+
+        psnr_total += psnr
+        ssim_total += ssim
+        count += 1
+
+    if count > 0:
+        print("\n--- AVERAGE ---")
+        print(f"PSNR: {psnr_total / count:.2f} dB")
+        print(f"SSIM: {ssim_total / count:.4f}")
+    else:
+        print("No images evaluated.")
