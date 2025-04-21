@@ -1,3 +1,5 @@
+import base64
+import pickle
 import numpy as np
 from crypto.transforms import (
     apply_intensity_modulation,
@@ -48,3 +50,11 @@ def decrypt(transformed_blocks: np.ndarray, keys: TransformKeys) -> np.ndarray:
         temp = undo_intensity_modulation(temp, keys.xor_keys)
 
     return temp
+
+
+def export_key_to_string(key_obj) -> str:
+    return base64.b64encode(pickle.dumps(key_obj)).decode("utf-8")
+
+
+def import_key_from_string(key_str: str):
+    return pickle.loads(base64.b64decode(key_str.encode("utf-8")))
