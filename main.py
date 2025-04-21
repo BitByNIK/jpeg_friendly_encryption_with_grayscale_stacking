@@ -1,21 +1,44 @@
-from crypto.operations import encrypt, encrypt_with_xor, decrypt_with_xor
-from graphic.operations import preprocess_raw_img, preprocess_grayscale_img, postprocess_grayscale_img
-from graphic.utils import generate_jpeg_image
-from evaluation.operations import compare_encryptions, plot_histograms, get_rate_distortion_curve
-from config import INPUT_IMAGE_PATH
+from graphic.operations import (
+    pad_to_block_size,
+    divide_into_blocks,
+    merge_blocks
+)
+from graphic.utils import open_jpeg, save_jpeg
+from graphic.io import convert_and_stack_ycbcr, restore_from_stacked_ycbcr
+from crypto.operations import encrypt, decrypt
 
-blocks, img_size = preprocess_raw_img(INPUT_IMAGE_PATH)
+# -------- ENCRYPT --------
+# Open RGB image
+img = open_jpeg("test_input.jpg")
 
-# encrypted_image_np = encrypt(blocks, img_size)
-# generate_jpeg_image(encrypted_image_np, "test_e.jpg")
+# Convert to stacked YCbCr format
+stacked = convert_and_stack_ycbcr(img)
 
-encrypted_image_with_xor_np, keys = encrypt_with_xor(blocks, img_size)
-generate_jpeg_image(encrypted_image_with_xor_np, "test_e_xor.jpg")
+# Pad and divide into blocks
+padded = pad_to_block_size(stacked)
+blocks = divide_into_blocks(padded)
 
-transformed_blocks, encrypted_img_size = preprocess_grayscale_img(
-    'test_e_xor.jpg')
-decrypted_image_with_xor_np = decrypt_with_xor(
-    transformed_blocks, encrypted_img_size, keys)
-postprocess_grayscale_img(decrypted_image_with_xor_np, "test_d_xor.jpg")
+# Encrypt with all ops
+encrypted_blocks, key = encrypt(blocks)
 
-# get_rate_distortion_curve(encrypted_image_np, encrypted_image_with_xor_np)
+# Merge and save encrypted image
+encrypted_img = merge_blocks(encrypted_blocks, stacked.shape)
+save_jpeg("test_e.jpg", encrypted_img)
+
+# -------- DECRYPT --------
+# Reuse the encrypted image (fresh load)
+encrypted = open_jpeg("test_e.jpg", as_array=True)
+
+# Pad and divide into blocks
+padded = pad_to_block_size(encrypted)
+blocks = divide_into_blocks(padded)
+
+# Decrypt using saved keys
+decrypted_blocks = decrypt(blocks, key)
+
+# Merge blocks and restore RGB
+decrypted_img = restore_from_stacked_ycbcr(
+    merge_blocks(decrypted_blocks, encrypted.shape))
+
+# Save the final result
+save_jpeg("test_d.jpg", decrypted_img)

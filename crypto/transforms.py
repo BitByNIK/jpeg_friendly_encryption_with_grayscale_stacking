@@ -1,15 +1,6 @@
 import numpy as np
 import random
-from dataclasses import dataclass
 from config import BLOCK_SIZE, SEED, VARIANCE_THRESHOLD
-
-
-@dataclass
-class TransformKeys:
-    indices: list
-    rf_values: list
-    np_flags: list
-    xor_keys: list
 
 
 def permute(blocks):
@@ -96,6 +87,7 @@ def undo_negative_positive(transformed_blocks, np_flags):
 
 
 def apply_intensity_modulation(blocks):
+    np.random.seed(SEED)
     transformed_blocks = []
     xor_keys = []
 
@@ -120,19 +112,3 @@ def undo_intensity_modulation(transformed_blocks, xor_keys):
         blocks.append(block)
 
     return np.array(blocks)
-
-
-def merge_blocks(blocks, original_shape):
-    h, w = original_shape
-    padded_h = ((h + BLOCK_SIZE - 1) // BLOCK_SIZE) * BLOCK_SIZE
-    padded_w = ((w + BLOCK_SIZE - 1) // BLOCK_SIZE) * BLOCK_SIZE
-    num_blocks_w = padded_w // BLOCK_SIZE
-
-    merged = (
-        blocks.reshape(padded_h // BLOCK_SIZE,
-                       num_blocks_w, BLOCK_SIZE, BLOCK_SIZE)
-        .swapaxes(1, 2)
-        .reshape(padded_h, padded_w)
-    )
-
-    return merged[:h, :w]

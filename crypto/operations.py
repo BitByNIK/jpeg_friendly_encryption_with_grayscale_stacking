@@ -1,7 +1,5 @@
 import numpy as np
-from typing import Tuple
-from crypto.helper import (
-    TransformKeys,
+from crypto.transforms import (
     apply_intensity_modulation,
     undo_intensity_modulation,
     permute,
@@ -10,34 +8,43 @@ from crypto.helper import (
     undo_rotation_and_flipping,
     apply_negative_positive,
     undo_negative_positive,
-    merge_blocks,
 )
+from crypto.keys import TransformKeys
 
 
-def encrypt(blocks: np.ndarray, original_shape: Tuple[int, int]) -> np.ndarray:
-    blocks, indices = permute(blocks)
-    blocks, rf_values = apply_rotation_and_flipping(blocks)
-    blocks, np_flags = apply_negative_positive(blocks)
+def encrypt(blocks: np.ndarray, ops_flag: bool = 0b1111) -> np.ndarray:
+    xor_keys = indices = rf_values = np_flags = None
+    temp = blocks
 
-    return merge_blocks(blocks, original_shape)
+    if ops_flag & 0b0001:
+        temp, xor_keys = apply_intensity_modulation(temp)
+    if ops_flag & 0b0010:
+        temp, indices = permute(temp)
+    if ops_flag & 0b0100:
+        temp, rf_values = apply_rotation_and_flipping(temp)
+    if ops_flag & 0b1000:
+        temp, np_flags = apply_negative_positive(temp)
+
+    keys = TransformKeys(
+        xor_keys=xor_keys,
+        indices=indices,
+        rf_values=rf_values,
+        np_flags=np_flags
+    )
+
+    return temp, keys
 
 
-def encrypt_with_xor(blocks: np.ndarray, original_shape: Tuple[int, int]) -> Tuple[np.ndarray, TransformKeys]:
-    blocks, xor_keys = apply_intensity_modulation(blocks)
-    blocks, indices = permute(blocks)
-    blocks, rf_values = apply_rotation_and_flipping(blocks)
-    transformed_blocks, np_flags = apply_negative_positive(blocks)
+def decrypt(transformed_blocks: np.ndarray, keys: TransformKeys) -> np.ndarray:
+    temp = transformed_blocks
 
-    keys = TransformKeys(indices, rf_values, np_flags, xor_keys)
-    return merge_blocks(transformed_blocks, original_shape), keys
+    if keys.np_flags is not None:
+        temp = undo_negative_positive(temp, keys.np_flags)
+    if keys.rf_values is not None:
+        temp = undo_rotation_and_flipping(temp, keys.rf_values)
+    if keys.indices is not None:
+        temp = undo_permute(temp, keys.indices)
+    if keys.xor_keys is not None:
+        temp = undo_intensity_modulation(temp, keys.xor_keys)
 
-
-def decrypt_with_xor(transformed_blocks: np.ndarray, original_shape: Tuple[int, int], keys: TransformKeys) -> np.ndarray:
-    transformed_blocks = undo_negative_positive(
-        transformed_blocks, keys.np_flags)
-    transformed_blocks = undo_rotation_and_flipping(
-        transformed_blocks, keys.rf_values)
-    transformed_blocks = undo_permute(transformed_blocks, keys.indices)
-    blocks = undo_intensity_modulation(transformed_blocks, keys.xor_keys)
-
-    return merge_blocks(blocks, original_shape)
+    return temp
