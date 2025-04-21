@@ -1,44 +1,57 @@
-from graphic.operations import (
-    pad_to_block_size,
-    divide_into_blocks,
-    merge_blocks
-)
+import os
+import argparse
+from pathlib import Path
+from crypto.operations import encrypt, decrypt
 from graphic.utils import open_jpeg, save_jpeg
 from graphic.io import convert_and_stack_ycbcr, restore_from_stacked_ycbcr
-from crypto.operations import encrypt, decrypt
+from graphic.operations import pad_to_block_size, divide_into_blocks, merge_blocks
+from config import INPUT_DIR, ENCRYPTED_DIR, DECRYPTED_DIR
 
-# -------- ENCRYPT --------
-# Open RGB image
-img = open_jpeg("test_input.jpg")
 
-# Convert to stacked YCbCr format
-stacked = convert_and_stack_ycbcr(img)
+INPUT_DIR.mkdir(exist_ok=True)
+ENCRYPTED_DIR.mkdir(exist_ok=True)
+DECRYPTED_DIR.mkdir(exist_ok=True)
 
-# Pad and divide into blocks
-padded = pad_to_block_size(stacked)
-blocks = divide_into_blocks(padded)
 
-# Encrypt with all ops
-encrypted_blocks, key = encrypt(blocks)
+def process_image(path: Path, ops_flag: int) -> None:
+    name = path.stem
 
-# Merge and save encrypted image
-encrypted_img = merge_blocks(encrypted_blocks, stacked.shape)
-save_jpeg("test_e.jpg", encrypted_img)
+    # -------- ENCRYPT --------
+    img = open_jpeg(str(path))
+    stacked = convert_and_stack_ycbcr(img)
+    padded = pad_to_block_size(stacked)
+    blocks = divide_into_blocks(padded)
 
-# -------- DECRYPT --------
-# Reuse the encrypted image (fresh load)
-encrypted = open_jpeg("test_e.jpg", as_array=True)
+    encrypted_blocks, key = encrypt(blocks, ops_flag)
+    encrypted_img = merge_blocks(encrypted_blocks, stacked.shape)
+    encrypted_name = f"{name}_encrypted_{ops_flag}.jpg"
+    save_jpeg(str(ENCRYPTED_DIR / encrypted_name), encrypted_img)
 
-# Pad and divide into blocks
-padded = pad_to_block_size(encrypted)
-blocks = divide_into_blocks(padded)
+    # -------- DECRYPT --------
+    encrypted_reloaded = open_jpeg(
+        str(ENCRYPTED_DIR / encrypted_name), as_array=True)
+    padded = pad_to_block_size(encrypted_reloaded)
+    blocks = divide_into_blocks(padded)
+    decrypted_blocks = decrypt(blocks, key)
+    decrypted_img = restore_from_stacked_ycbcr(
+        merge_blocks(decrypted_blocks, encrypted_img.shape)
+    )
 
-# Decrypt using saved keys
-decrypted_blocks = decrypt(blocks, key)
+    decrypted_name = f"{name}_decrypted_{ops_flag}.jpg"
+    save_jpeg(str(DECRYPTED_DIR / decrypted_name), decrypted_img)
 
-# Merge blocks and restore RGB
-decrypted_img = restore_from_stacked_ycbcr(
-    merge_blocks(decrypted_blocks, encrypted.shape))
 
-# Save the final result
-save_jpeg("test_d.jpg", decrypted_img)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ops", type=int, default=15,
+                        help="Ops bitmask (e.g. 15, 7, etc.)")
+    args = parser.parse_args()
+
+    ops_flag = args.ops
+
+    for path in INPUT_DIR.glob("*.jpg"):
+        process_image(path, ops_flag)
+
+
+if __name__ == "__main__":
+    main()
