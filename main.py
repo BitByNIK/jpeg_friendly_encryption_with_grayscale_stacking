@@ -23,7 +23,10 @@ def get_output_path(input_path: Path, batch_dir: Path, operation_type: str, ops_
         filename = f"{stem}_{operation_type}_{ops_flag}_q{jpeg_quality}.jpg"
         return str(batch_dir / filename)
     else:
-        filename = input_path.name.replace("encrypted", "decrypted")
+        if operation_type == "encrypted":
+            filename = f"{stem}_{operation_type}_{ops_flag}_q{jpeg_quality}.jpg"
+        else:
+            filename = input_path.name.replace("encrypted", "decrypted")
         return str(input_path.parent / filename)
 
 
