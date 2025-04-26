@@ -13,17 +13,21 @@ ENCRYPTED_DIR.mkdir(exist_ok=True)
 DECRYPTED_DIR.mkdir(exist_ok=True)
 
 
-def get_output_path(input_path: Path, batch_dir: Path, operation_type: str, ops_flag: int, batch: bool = False) -> str:
+def get_output_path(input_path: Path, batch_dir: Path, operation_type: str, ops_flag: int, jpeg_quality: int, batch: bool = False) -> str:
     stem = input_path.stem
 
-    if operation_type == "decrypted" and "_encrypted_" in stem:
-        stem = stem.rsplit("_encrypted_", 1)[0]
+    if batch:
+        if operation_type == "decrypted" and "_encrypted_" in stem:
+            stem = stem.rsplit("_encrypted_", 1)[0]
 
-    filename = f"{stem}_{operation_type}_{ops_flag}.jpg"
-    return str((batch_dir if batch else input_path.parent) / filename)
+        filename = f"{stem}_{operation_type}_{ops_flag}_q{jpeg_quality}.jpg"
+        return str(batch_dir / filename)
+    else:
+        filename = input_path.name.replace("encrypted", "decrypted")
+        return str(input_path.parent / filename)
 
 
-def encrypt_image(path: Path, ops_flag: int, batch: bool = False) -> Tuple[Any, Path]:
+def encrypt_image(path: Path, ops_flag: int, jpeg_quality: int, batch: bool = False) -> Tuple[Any, Path]:
     # -------- ENCRYPT --------
     img = open_jpeg(str(path))
 
@@ -35,13 +39,13 @@ def encrypt_image(path: Path, ops_flag: int, batch: bool = False) -> Tuple[Any, 
     encrypted_img = merge_blocks(encrypted_blocks, stacked.shape)
 
     encrypted_img_path = get_output_path(
-        path, ENCRYPTED_DIR, "encrypted", ops_flag, batch)
-    save_jpeg(encrypted_img_path, encrypted_img)
+        path, ENCRYPTED_DIR, "encrypted", ops_flag, jpeg_quality, batch)
+    save_jpeg(encrypted_img_path, encrypted_img, jpeg_quality)
 
     return key, Path(encrypted_img_path)
 
 
-def decrypt_image(path: Path, ops_flag: int, key, batch: bool = False) -> None:
+def decrypt_image(path: Path, ops_flag: int, key, jpeg_quality: int, batch: bool = False) -> None:
     # -------- DECRYPT --------
     encrypted_reloaded = open_jpeg(str(path), as_array=True)
 
@@ -54,7 +58,7 @@ def decrypt_image(path: Path, ops_flag: int, key, batch: bool = False) -> None:
     )
 
     save_jpeg(get_output_path(path, DECRYPTED_DIR, "decrypted",
-              ops_flag, batch), decrypted_img)
+              ops_flag, jpeg_quality, batch), decrypted_img)
 
 
 def main():
@@ -65,6 +69,8 @@ def main():
                         "KEY"), help="Decrypt a single image")
     parser.add_argument("-ops", type=int, default=15,
                         help="Operation bitmask for encryption")
+    parser.add_argument("-jq", type=int, default=95,
+                        help="JPEG compression quality")
     args = parser.parse_args()
 
     if args.e:
@@ -73,7 +79,7 @@ def main():
             print(f"File {path} does not exist.")
             return
 
-        key, _ = encrypt_image(path, args.ops)
+        key, _ = encrypt_image(path, args.ops, args.jq)
 
         key_path = path.with_name(f"{path.stem}_key.txt")
         key_path.write_text(export_key_to_string(key))
@@ -96,14 +102,14 @@ def main():
         try:
             key_str = key_path.read_text().strip()
             key = import_key_from_string(key_str)
-            decrypt_image(path, args.ops, key)
+            decrypt_image(path, args.ops, key, args.jq)
         except Exception:
             print("Invalid decryption key.")
 
     else:
         for path in INPUT_DIR.glob("*.jpg"):
-            key, temp_path = encrypt_image(path, args.ops, batch=True)
-            decrypt_image(temp_path, args.ops, key, batch=True)
+            key, temp_path = encrypt_image(path, args.ops, args.jq, batch=True)
+            decrypt_image(temp_path, args.ops, key, args.jq, batch=True)
 
 
 if __name__ == "__main__":

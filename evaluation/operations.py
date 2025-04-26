@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
 from pathlib import Path
-import numpy as np
 from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def evaluate_entropy(folder: Path):
