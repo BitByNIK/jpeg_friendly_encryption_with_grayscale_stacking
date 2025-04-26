@@ -161,7 +161,6 @@ cython_debug/
 
 # Custom
 *_images/
-jigsaw-puzzle-solver/
 
 # macOS
 .DS_Store

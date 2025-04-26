@@ -1,99 +1,78 @@
-from io import BytesIO
-from pathlib import Path
-from PIL import Image
-import numpy as np
 import matplotlib.pyplot as plt
-from skimage.measure import shannon_entropy
-from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+from pathlib import Path
+import numpy as np
+from PIL import Image
 
 
-def compare_encryptions(encrypted_a: np.ndarray, a_name: str, encrypted_b: np.ndarray, b_name: str) -> None:
-    print(f"Comparing Encryption {a_name} vs {b_name}\n")
+def evaluate_entropy(folder: Path):
+    """Evaluate and compare Shannon entropy for mode 14 and mode 15 images."""
 
-    print(f"Entropy {a_name}: {shannon_entropy(encrypted_a):.4f}")
-    print(f"Entropy {b_name}: {shannon_entropy(encrypted_b):.4f}\n")
+    def compute_entropy(img_path: Path) -> float:
+        img = Image.open(img_path).convert("L")
+        img_np = np.array(img)
+        histogram, _ = np.histogram(
+            img_np.flatten(), bins=256, range=(0, 255), density=True)
+        histogram = histogram[histogram > 0]
+        entropy = -np.sum(histogram * np.log2(histogram))
+        return entropy
+
+    img_paths = list(folder.glob("*.jpg"))
+
+    mode14_entropies = []
+    mode15_entropies = []
+
+    for path in img_paths:
+        if "_14" in path.stem:
+            mode14_entropies.append(compute_entropy(path))
+        elif "_15" in path.stem:
+            mode15_entropies.append(compute_entropy(path))
+
+    print(f"--- Entropy Evaluation ---")
+    print(
+        f"Without Adaptive XOR: Average Entropy = {np.mean(mode14_entropies):.4f} bits")
+    print(
+        f"With Adaptive XOR: Average Entropy = {np.mean(mode15_entropies):.4f} bits")
+
+    return mode14_entropies, mode15_entropies
 
 
-def plot_histograms(encrypted_a: np.ndarray, encrypted_b: np.ndarray) -> None:
-    plt.figure(figsize=(12, 5))
+def plot_histogram_comparison(folder: Path):
+    """Plot histogram comparison between without and with adaptive XOR."""
 
-    plt.subplot(1, 2, 1)
-    plt.hist(encrypted_a.ravel(), bins=256, color='gray', alpha=0.8)
-    plt.title(
-        f"Histogram: Encryption A \nEntropy: {shannon_entropy(encrypted_a):.4f} bits")
-    plt.xlabel('Pixel value')
-    plt.ylabel('Frequency')
+    img_paths = list(folder.glob("*.jpg"))
 
-    plt.subplot(1, 2, 2)
-    plt.hist(encrypted_b.ravel(), bins=256, color='blue', alpha=0.8)
-    plt.title(
-        f"Histogram: Encryption B \nEntropy: {shannon_entropy(encrypted_b):.4f} bits")
-    plt.xlabel('Pixel value')
+    mode14_path = next((p for p in img_paths if "_14" in p.stem), None)
+    mode15_path = next((p for p in img_paths if "_15" in p.stem), None)
+
+    if mode14_path is None or mode15_path is None:
+        print("Error: Images for both modes not found.")
+        return
+
+    # Load images
+    img14 = Image.open(mode14_path).convert("L")
+    img15 = Image.open(mode15_path).convert("L")
+    img14_np = np.array(img14)
+    img15_np = np.array(img15)
+
+    # Compute histograms
+    hist14, _ = np.histogram(img14_np.flatten(), bins=256, range=(0, 255))
+    hist15, _ = np.histogram(img15_np.flatten(), bins=256, range=(0, 255))
+
+    max_y = max(hist14.max(), hist15.max())
+
+    # Plot
+    fig, axs = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+
+    axs[0].bar(np.arange(256), hist14, width=1.0)
+    axs[0].set_title("Without Adaptive XOR")
+    axs[0].set_xlabel("Pixel Intensity")
+    axs[0].set_ylabel("Frequency")
+    axs[0].set_ylim(0, max_y * 1.1)
+
+    axs[1].bar(np.arange(256), hist15, width=1.0)
+    axs[1].set_title("With Adaptive XOR")
+    axs[1].set_xlabel("Pixel Intensity")
+    axs[1].set_ylim(0, max_y * 1.1)
 
     plt.tight_layout()
     plt.show()
-
-
-def get_rate_distortion_curve(encrypted_a: np.ndarray, encrypted_b: np.ndarray, qualities: list = [100, 90, 80, 70, 60, 50]) -> None:
-    def get_sizes(img_array):
-        sizes = []
-        for q in qualities:
-            img = Image.fromarray(img_array)
-            buffer = BytesIO()
-            img.save(buffer, format='JPEG', quality=q)
-            size_kb = len(buffer.getvalue()) / 1024
-            sizes.append(size_kb)
-        return sizes
-
-    sizes_no_xor = get_sizes(encrypted_a)
-    sizes_xor = get_sizes(encrypted_b)
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(qualities, sizes_no_xor, marker='o',
-             label='Encrypted Without XOR')
-    plt.plot(qualities, sizes_xor, marker='x', label='Encrypted With XOR')
-    plt.xlabel('JPEG Quality Factor')
-    plt.ylabel('File Size (KB)')
-    plt.title('Rate-Distortion Curve')
-    plt.gca().invert_xaxis()
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def evaluate_psnr_ssim(original: np.ndarray, decrypted: np.ndarray):
-    psnr = peak_signal_noise_ratio(original, decrypted, data_range=255)
-    ssim = structural_similarity(original, decrypted, data_range=255)
-    return psnr, ssim
-
-
-def run_psnr_ssim_batch_evaluation(original_dir: Path, decrypted_dir: Path):
-    psnr_total = 0.0
-    ssim_total = 0.0
-    count = 0
-
-    for original_path in original_dir.glob("*.jpg"):
-        name = original_path.stem
-        decrypted_path = decrypted_dir / f"{name}_decrypted_15.jpg"
-
-        if not decrypted_path.exists():
-            print(f"Skipped: {name} — decrypted image not found.")
-            continue
-
-        orig_img = np.array(Image.open(original_path).convert("L"))
-        decr_img = np.array(Image.open(decrypted_path).convert("L"))
-
-        psnr, ssim = evaluate_psnr_ssim(orig_img, decr_img)
-        print(f"{name}: PSNR = {psnr:.2f} dB, SSIM = {ssim:.4f}")
-
-        psnr_total += psnr
-        ssim_total += ssim
-        count += 1
-
-    if count > 0:
-        print("\n--- AVERAGE ---")
-        print(f"PSNR: {psnr_total / count:.2f} dB")
-        print(f"SSIM: {ssim_total / count:.4f}")
-    else:
-        print("No images evaluated.")
