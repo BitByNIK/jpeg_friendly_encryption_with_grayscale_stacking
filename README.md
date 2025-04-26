@@ -25,8 +25,8 @@ Use the `-e` or `-d` flags:
 python main.py -e path/to/image.jpg
 ```
 
-- Encrypted image will be saved **next to the input image**
-- A key file (`.txt`) will also be saved alongside the image
+- Encrypted image will be saved **next to the input image**.
+- A key file (`.txt`) will also be saved alongside the image.
 
 #### 🔓 Decrypt
 
@@ -34,7 +34,7 @@ python main.py -e path/to/image.jpg
 python main.py -d path/to/encrypted_image.jpg path/to/key_file.txt
 ```
 
-- Decrypted image will be saved **next to the encrypted image**
+- Decrypted image will be saved **next to the encrypted image**.
 
 ---
 
@@ -51,9 +51,13 @@ python main.py
 
 ---
 
-## 🔢 Operation Bitmask
+## ⚙️ Common Options (Encryption Only)
 
-Use the optional `-ops` flag to specify which transformations to apply:
+These flags can be used with encryption (`-e` or batch mode):
+
+### 🔢 Operation Bitmask (`-ops`)
+
+Specify which transformations to apply:
 
 ```bash
 -ops <bitmask>
@@ -73,6 +77,22 @@ Examples:
 - `-ops 3` → XOR + Permutation
 - `-ops 15` → All operations
 
+### 🖼️ JPEG Compression Quality (`-jq`)
+
+Set JPEG compression quality after encryption:
+
+```bash
+-jq <quality>
+```
+
+- Default is `95`.
+- Controls the output quality of encrypted JPEGs.
+
+Examples:
+
+- `-jq 85` → Save encrypted images at quality 85
+- `-jq 100` → Save encrypted images at maximum quality
+
 ---
 
 ## 📁 Directory Structure
@@ -91,3 +111,27 @@ Examples:
 
 - The key file is **essential** — without it, decryption is not possible.
 - Do **not resize or modify** encrypted images before decryption — block structure matters.
+- `-ops` and `-jq` only affect encryption, not decryption.
+- You can combine `-ops` and `-jq` freely during encryption.
+
+---
+
+## 🛠️ Example Commands
+
+Encrypt a single image with custom settings:
+
+```bash
+python main.py -e path/to/image.jpg -ops 7 -jq 90
+```
+
+Batch encrypt all images with maximum JPEG quality:
+
+```bash
+python main.py -ops 15 -jq 100
+```
+
+Decrypt a single encrypted image:
+
+```bash
+python main.py -d path/to/encrypted_image.jpg path/to/key_file.txt
+```

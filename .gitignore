@@ -162,6 +162,7 @@ cython_debug/
 # Custom
 encrypted_images/
 decrypted_images/
+uploaded_encrypted_images/
 
 # macOS
 .DS_Store
