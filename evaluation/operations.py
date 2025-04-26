@@ -3,75 +3,61 @@ from pathlib import Path
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
+from skimage.measure import shannon_entropy
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from graphic.utils import open_jpeg
 
 
-def evaluate_entropy(folder: Path) -> None:
-    """Evaluate and compare Shannon entropy for mode 14 and mode 15 images."""
+def evaluate_entropy(folder: Path, mode1: int = 14, mode2: int = 15) -> None:
+    """Compare Shannon entropy between two modes."""
 
     def compute_entropy(img_path: Path) -> float:
         img = Image.open(img_path).convert("L")
         img_np = np.array(img)
-        histogram, _ = np.histogram(
-            img_np.flatten(), bins=256, range=(0, 255), density=True)
-        histogram = histogram[histogram > 0]
-        entropy = -np.sum(histogram * np.log2(histogram))
-        return entropy
+        return shannon_entropy(img_np)
 
     img_paths = list(folder.glob("*.jpg"))
 
-    mode14_entropies = []
-    mode15_entropies = []
+    mode1_entropies = []
+    mode2_entropies = []
 
     for path in img_paths:
-        if "_14" in path.stem:
-            mode14_entropies.append(compute_entropy(path))
-        elif "_15" in path.stem:
-            mode15_entropies.append(compute_entropy(path))
+        if f"_{mode1}" in path.stem:
+            mode1_entropies.append(compute_entropy(path))
+        elif f"_{mode2}" in path.stem:
+            mode2_entropies.append(compute_entropy(path))
 
-    print(f"--- Entropy Evaluation ---")
+    print(f"--- Shannon Entropy Evaluation ---")
     print(
-        f"Without Adaptive XOR: Average Entropy = {np.mean(mode14_entropies):.4f} bits")
+        f"Mode {mode1} Without XOR: Average Entropy = {np.mean(mode1_entropies):.4f} bits")
     print(
-        f"With Adaptive XOR: Average Entropy = {np.mean(mode15_entropies):.4f} bits")
+        f"Mode {mode2} With XOR: Average Entropy = {np.mean(mode2_entropies):.4f} bits")
 
 
-def plot_histogram_comparison(folder: Path) -> None:
-    """Plot histogram comparison between without and with adaptive XOR."""
+def plot_histogram_comparison(img1_path: Path, img2_path: Path) -> None:
+    """Plot histogram comparison between two images."""
 
-    img_paths = list(folder.glob("*.jpg"))
+    img1 = Image.open(img1_path).convert("L")
+    img2 = Image.open(img2_path).convert("L")
 
-    mode14_path = next((p for p in img_paths if "_14" in p.stem), None)
-    mode15_path = next((p for p in img_paths if "_15" in p.stem), None)
+    img1_np = np.array(img1)
+    img2_np = np.array(img2)
 
-    if mode14_path is None or mode15_path is None:
-        print("Error: Images for both modes not found.")
-        return
+    hist1, _ = np.histogram(img1_np.flatten(), bins=256, range=(0, 255))
+    hist2, _ = np.histogram(img2_np.flatten(), bins=256, range=(0, 255))
 
-    # Load images
-    img14 = Image.open(mode14_path).convert("L")
-    img15 = Image.open(mode15_path).convert("L")
-    img14_np = np.array(img14)
-    img15_np = np.array(img15)
+    max_y = max(hist1.max(), hist2.max())
 
-    # Compute histograms
-    hist14, _ = np.histogram(img14_np.flatten(), bins=256, range=(0, 255))
-    hist15, _ = np.histogram(img15_np.flatten(), bins=256, range=(0, 255))
-
-    max_y = max(hist14.max(), hist15.max())
-
-    # Plot
     fig, axs = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
 
-    axs[0].bar(np.arange(256), hist14, width=1.0)
-    axs[0].set_title("Without Adaptive XOR")
+    axs[0].bar(np.arange(256), hist1, width=1.0)
+    axs[0].set_title("Without XOR")
     axs[0].set_xlabel("Pixel Intensity")
     axs[0].set_ylabel("Frequency")
     axs[0].set_ylim(0, max_y * 1.1)
 
-    axs[1].bar(np.arange(256), hist15, width=1.0)
-    axs[1].set_title("With Adaptive XOR")
+    axs[1].bar(np.arange(256), hist2, width=1.0)
+    axs[1].set_title("With XOR")
     axs[1].set_xlabel("Pixel Intensity")
     axs[1].set_ylim(0, max_y * 1.1)
 
@@ -80,11 +66,9 @@ def plot_histogram_comparison(folder: Path) -> None:
 
 
 def plot_psnr_vs_bpp(input_dir: Path, decrypted_dir: Path) -> None:
-    """
-    Plot PSNR vs BPP curve between original images and decrypted images.
-    """
+    """Plot PSNR vs BPP curve between input images and decrypted images."""
 
-    qualities = list(range(70, 96))  # JPEG qualities 70 to 95
+    qualities = list(range(70, 100, 5))
     bpp_list = []
     psnr_list = []
 
@@ -99,7 +83,6 @@ def plot_psnr_vs_bpp(input_dir: Path, decrypted_dir: Path) -> None:
             filename = input_img_path.stem
             original = np.array(open_jpeg(str(input_img_path)))
 
-            # decrypted file pattern
             decrypted_img_path = decrypted_dir / \
                 f"{filename}_decrypted_15_q{q}.jpg"
             if not decrypted_img_path.exists():
@@ -120,7 +103,6 @@ def plot_psnr_vs_bpp(input_dir: Path, decrypted_dir: Path) -> None:
             bpp_list.append(total_bpp / count)
             psnr_list.append(total_psnr / count)
 
-    # Plot
     plt.plot(bpp_list, psnr_list, marker='o')
     plt.xlabel('Bits Per Pixel (BPP)')
     plt.ylabel('PSNR (dB)')
@@ -129,8 +111,10 @@ def plot_psnr_vs_bpp(input_dir: Path, decrypted_dir: Path) -> None:
     plt.show()
 
 
-def evaluate_social_media_psnr_table(input_dir: Path, uploaded_decrypted_dir: Path) -> None:
-    qualities = list(range(70, 100, 5))  # JPEG qualities from 70 to 95
+def evaluate_social_media_psnr_table(input_dir: Path, decrypted_dir: Path) -> None:
+    """Print PSNR table for images uploaded and downloaded from social media."""
+
+    qualities = list(range(70, 100, 5))
     results = []
 
     input_files = sorted(input_dir.glob("*.jpg"))
@@ -141,8 +125,7 @@ def evaluate_social_media_psnr_table(input_dir: Path, uploaded_decrypted_dir: Pa
 
         for input_path in input_files:
             stem = input_path.stem
-            uploaded_path = uploaded_decrypted_dir / \
-                f"{stem}_decrypted_15_q{q}.jpg"
+            uploaded_path = decrypted_dir / f"{stem}_decrypted_15_q{q}.jpg"
 
             if not uploaded_path.exists():
                 continue
@@ -150,7 +133,6 @@ def evaluate_social_media_psnr_table(input_dir: Path, uploaded_decrypted_dir: Pa
             original = np.array(open_jpeg(str(input_path)))
             uploaded = np.array(open_jpeg(str(uploaded_path)))
 
-            # Crop to the minimum dimensions
             min_h = min(original.shape[0], uploaded.shape[0])
             min_w = min(original.shape[1], uploaded.shape[1])
 
@@ -164,7 +146,6 @@ def evaluate_social_media_psnr_table(input_dir: Path, uploaded_decrypted_dir: Pa
         avg_psnr = psnr_sum / count if count > 0 else 0
         results.append((q, avg_psnr))
 
-    # Print the table
     print(f"{'JPEG Quality':<15}{'Average PSNR (dB)':<20}")
     print("-" * 35)
     for q, p in results:
